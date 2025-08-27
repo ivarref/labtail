@@ -181,7 +181,7 @@ while true; do
         if [[ "[]" == "$(echo "${PIPELINE}" | jq -r '.jobs')" ]]; then
           log_status "waiting for new job for pipeline ${PIPELINE_ID} ..."
           sleep 1
-        elif [[ "null" == "$(echo "${PIPELINE}" | jq -r '.jobs[-1].id')" ]]; then
+        elif [[ "null" == "${JOB_ID}" ]]; then
           log_status "waiting for new job for pipeline ${PIPELINE_ID} ..."
           sleep 1
         elif [[ "${PIPELINE_STATUS}" == "running" ]]; then
@@ -198,24 +198,8 @@ while true; do
           maybe_trace_job "$PIPELINE"
           log_error "pipeline ${PIPELINE_ID} with job ${JOB_ID} failed"
           log_error "failed job URL is ${JOB_URL}"
-#            printf '\033[3J' # clear scrollback
-#            printf '\033[2J' # clear whole screen without moving the cursor
-#            printf '\033[H' # move cursor to top left of the screen
-#            log_error "pipeline ${PIPELINE_ID} failed, dumping logs:"
-#            JOB_ID="$(echo "${PIPELINE}" | jq -r '.jobs[-1].id')"
-#            if [[ "${JOB_ID}" == "null" ]]; then
-#              log_error "jobs.id is null, cannot dump logs"
-#            else
-#              glab ci trace "${JOB_ID}" || true
-#              JOB_URL="$( echo "$GLAB_OUTPUT" | jq -r '.jobs[-1].web_url')"
-#              log_error "last job is ${JOB_URL}"
-#            fi
-            break
-          fi
+          break
         elif [[ "${PIPELINE_STATUS}" == "success" ]]; then
-#          printf '\033[3J' # clear scrollback
-#          printf '\033[2J' # clear whole screen without moving the cursor
-#          printf '\033[H' # move cursor to top left of the screen
           maybe_trace_job "$PIPELINE"
           log_info "pipeline ${PIPELINE_ID} with job ${JOB_ID} succeeded"
           log_info "succeeded job URL is ${JOB_URL}"
