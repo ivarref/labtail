@@ -126,7 +126,7 @@ def do_release():
                                     return False
                                 else:
                                     print("OK push: " + " ".join(cmd))
-                                    print(f"Released tag sha {git_sha}")
+                                    print(f"Released sha {git_sha}")
                                     return True
     print('should not get here')
     sys.exit(1)
