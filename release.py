@@ -23,22 +23,21 @@ def exec_verbose(args, print_sout=False, return_sout=False):
                 for lin in res.stdout.splitlines():
                     try:
                         lin_decoded = lin.decode('utf-8')
-                        log_error('stdout: ' + lin_decoded)
+                        log_error(lin_decoded)
                     except UnicodeDecodeError:
                         log_error(lin)
                 log_error('*'*26 + ' end stdout ' + '*'*26)
             if 0 == len(res.stderr.splitlines()):
                 log_error('Stderr: <empty>')
             else:
-                log_error('Stderr:')
-                log_error('='*80)
+                log_error('*'*25 + ' start stderr ' + '*'*25)
                 for lin in res.stderr.splitlines():
                     try:
                         lin_decoded = lin.decode('utf-8')
                         log_error(lin_decoded)
                     except UnicodeDecodeError:
                         log_error(lin)
-                log_error('='*80)
+                log_error('*'*26 + ' end stderr ' + '*'*26)
             log_error(f'Command {args} failed with exit code {res.returncode}')
             return False
         else:

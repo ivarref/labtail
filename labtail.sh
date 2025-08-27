@@ -185,7 +185,7 @@ while true; do
           log_status "waiting for new job for pipeline ${PIPELINE_ID} ..."
           sleep 1
         elif [[ "${PIPELINE_STATUS}" == "running" ]]; then
-          log_status "waiting for pipeline ${PIPELINE_ID} (\e[1;35m${PIPELINE_STATUS}\e[0m) to finish ..."
+          log_info "pipeline ${PIPELINE_ID} changed to state 'running'"
           maybe_trace_job "$PIPELINE"
         elif [[ "${PIPELINE_STATUS}" == "pending" ]]; then
           log_status "waiting for pipeline ${PIPELINE_ID} (\e[1;33m${PIPELINE_STATUS}\e[0m) to finish ..."
