@@ -14,7 +14,7 @@ and jobs? If so, this tool is for you.
 ## Installation
 
 ```
-curl -LsSf https://raw.githubusercontent.com/ivarref/labtail/2cd3e14e2d9c3cd4b1284bb5bfa5fb8fc2665c5c/labtail.sh -O \
+curl -LsSf https://raw.githubusercontent.com/ivarref/labtail/89f3ab1008431a33e38d791f427808807e4e7cdd/labtail.sh -O \
 && chmod +x ./labtail.sh \
 && mv ./labtail.sh "$HOME/.local/bin/labtail"
 ```
