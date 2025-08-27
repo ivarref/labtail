@@ -120,7 +120,7 @@ def do_release():
                                 return False
                             else:
                                 print("OK commit: " + " ".join(cmd))
-                                cmd = ['git', 'push', '--follow-tags']
+                                cmd = ['git', 'push']
                                 if False == exec_verbose(cmd):
                                     print('Failed to git push. Aborting!')
                                     return False
