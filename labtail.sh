@@ -127,7 +127,7 @@ get_glab_output() {
   elif [[ "$GLAB_OUTPUT" == *"error connecting to"* ]]; then
     GLAB_OUTPUT='{}'
   else
-    log_error "Unexpected exit code ${GLAB_EXIT_CODE} stdout/stderr was: ${GLAB_OUTPUT}"
+    log_error "Unexpected exit code '${GLAB_EXIT_CODE}' from 'glab ci get --output json'. Stdout/stderr was: ${GLAB_OUTPUT}"
     exit "${GLAB_EXIT_CODE}"
   fi
 }
@@ -138,19 +138,20 @@ LAST_TRACED_JOB_ID='INIT'
 maybe_trace_job() {
   PIPELINE="$1"
   if [[ "[]" == "$(echo "${PIPELINE}" | jq -r '.jobs')" ]]; then
-    log_error "should not happen"
+    log_error "'.jobs' is an empty array. Should not happen. Exiting"
     exit 1
   else
     JOB_ID="$(echo "${PIPELINE}" | jq -r '.jobs[-1].id')"
     JOB_URL="$( echo "${PIPELINE}" | jq -r '.jobs[-1].web_url')"
+    JOB_NAME="$( echo "${PIPELINE}" | jq -r '.jobs[-1].name')"
     if [[ "$LAST_TRACED_JOB_ID" == "$JOB_ID" ]]; then
       :
     elif [[ "${JOB_ID}" == "null" ]]; then
-      log_error "jobs.id is null, cannot trace log"
+      log_error "'job.id' is null: cannot trace log"
       sleep 1
     else
-      log_info "tracing job ${JOB_ID} ..."
-      log_info "aka ${JOB_URL}"
+      log_info "Tracing job '${JOB_NAME}' ${JOB_ID} ..."
+      log_info "Job '${JOB_NAME}' URL: ${JOB_URL}"
       glab ci trace "${JOB_ID}" || true
       LAST_TRACED_JOB_ID="$JOB_ID"
     fi
@@ -162,10 +163,10 @@ while true; do
   PIPELINE="$( echo "$GLAB_OUTPUT" | { jq -r '.' 2>/dev/null || echo '{}'; })"
   PIPELINE_ID="$(echo "${PIPELINE}" | jq -r '.id')"
   if [[ "${PIPELINE_ID}" == "${LAST_PIPELINE_ID}" ]]; then
-    log_status "waiting for new pipeline ..."
+    log_status "Waiting for new pipeline ..."
     sleep 1
   elif [[ "${PIPELINE_ID}" == 'null' ]]; then
-    log_status "waiting for new pipeline ..."
+    log_status "Waiting for new pipeline ..."
     sleep 1
   else
     LAST_PIPELINE_ID="${PIPELINE_ID}"
@@ -176,40 +177,43 @@ while true; do
       PIPELINE_STATUS="$(echo "${PIPELINE}" | jq -r '.status')"
       JOB_ID="$(echo "${PIPELINE}" | jq -r '.jobs[-1].id')"
       JOB_URL="$( echo "${PIPELINE}" | jq -r '.jobs[-1].web_url')"
+      JOB_NAME="$( echo "${PIPELINE}" | jq -r '.jobs[-1].name')"
 
       if [[ "${PIPELINE_ID}" == "${LAST_PIPELINE_ID}" ]]; then
         if [[ "[]" == "$(echo "${PIPELINE}" | jq -r '.jobs')" ]]; then
-          log_status "waiting for new job for pipeline ${PIPELINE_ID} ..."
+          log_status "Waiting for new job for pipeline ${PIPELINE_ID} ..."
           sleep 1
         elif [[ "null" == "${JOB_ID}" ]]; then
-          log_status "waiting for new job for pipeline ${PIPELINE_ID} ..."
+          log_status "Waiting for new job for pipeline ${PIPELINE_ID} ..."
           sleep 1
         elif [[ "${PIPELINE_STATUS}" == "running" ]]; then
-          log_info "pipeline ${PIPELINE_ID} changed to state 'running'"
+          log_info "Pipeline ${PIPELINE_ID} changed to state 'running'"
           maybe_trace_job "$PIPELINE"
         elif [[ "${PIPELINE_STATUS}" == "pending" ]]; then
-          log_status "waiting for pipeline ${PIPELINE_ID} (\e[1;33m${PIPELINE_STATUS}\e[0m) to finish ..."
+          log_info "Pipeline ${PIPELINE_ID} changed to state 'pending'"
           sleep 1
         elif [[ "${PIPELINE_STATUS}" == "null" ]]; then
           sleep 1
         elif [[ "${PIPELINE_STATUS}" == "skipped" ]]; then
-          log_status "waiting for new pipeline ..."
+          log_info "Pipeline ${PIPELINE_ID} changed to state 'pending'"
+          sleep 1
+          break
         elif [[ "${PIPELINE_STATUS}" == "failed" ]]; then
           maybe_trace_job "$PIPELINE"
-          log_error "pipeline ${PIPELINE_ID} with job ${JOB_ID} failed"
-          log_error "failed job URL is ${JOB_URL}"
+          log_error "Job '${JOB_NAME}' ${JOB_ID} for pipeline ${PIPELINE_ID} failed"
+          log_error "Job '${JOB_NAME}' ${JOB_ID} URL is ${JOB_URL}"
           break
         elif [[ "${PIPELINE_STATUS}" == "success" ]]; then
           maybe_trace_job "$PIPELINE"
-          log_info "pipeline ${PIPELINE_ID} with job ${JOB_ID} succeeded"
-          log_info "succeeded job URL is ${JOB_URL}"
+          log_info "Job '${JOB_NAME}' ${JOB_ID} for pipeline ${PIPELINE_ID} succeeded"
+          log_info "Job '${JOB_NAME}' ${JOB_ID} URL is ${JOB_URL}"
           break
         else
-          log_error "unhandled pipeline status '${PIPELINE_STATUS}'"
+          log_error "Unhandled pipeline status '${PIPELINE_STATUS}'"
           sleep 1
         fi
       else
-        log_info "pipeline changed to ${PIPELINE_ID}"
+        log_info "Pipeline changed to ${PIPELINE_ID}"
         break
       fi
     done
