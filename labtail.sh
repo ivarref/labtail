@@ -195,7 +195,7 @@ while true; do
         elif [[ "${PIPELINE_STATUS}" == "null" ]]; then
           sleep 1
         elif [[ "${PIPELINE_STATUS}" == "skipped" ]]; then
-          log_info "Pipeline ${PIPELINE_ID} changed to state 'pending'"
+          log_info "Pipeline ${PIPELINE_ID} changed to state 'skipped'"
           sleep 1
           break
         elif [[ "${PIPELINE_STATUS}" == "failed" ]]; then
