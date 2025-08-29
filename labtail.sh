@@ -175,18 +175,13 @@ while true; do
       PIPELINE="$( echo "$GLAB_OUTPUT" | { jq -r '.' 2>/dev/null || echo '{}'; })"
       PIPELINE_ID="$(echo "${PIPELINE}" | jq -r '.id')"
       PIPELINE_STATUS="$(echo "${PIPELINE}" | jq -r '.status')"
+      PIPELINE_URL="$(echo "${PIPELINE}" | jq -r '.web_url')"
       JOB_ID="$(echo "${PIPELINE}" | jq -r '.jobs[-1].id')"
       JOB_URL="$( echo "${PIPELINE}" | jq -r '.jobs[-1].web_url')"
       JOB_NAME="$( echo "${PIPELINE}" | jq -r '.jobs[-1].name')"
 
       if [[ "${PIPELINE_ID}" == "${LAST_PIPELINE_ID}" ]]; then
-        if [[ "[]" == "$(echo "${PIPELINE}" | jq -r '.jobs')" ]]; then
-          log_status "Waiting for new job for pipeline ${PIPELINE_ID} ..."
-          sleep 1
-        elif [[ "null" == "${JOB_ID}" ]]; then
-          log_status "Waiting for new job for pipeline ${PIPELINE_ID} ..."
-          sleep 1
-        elif [[ "${PIPELINE_STATUS}" == "running" ]]; then
+        if [[ "${PIPELINE_STATUS}" == "running" ]]; then
           log_info "Pipeline ${PIPELINE_ID} changed to state 'running'"
           maybe_trace_job "$PIPELINE"
         elif [[ "${PIPELINE_STATUS}" == "pending" ]]; then
@@ -199,10 +194,20 @@ while true; do
           sleep 1
           break
         elif [[ "${PIPELINE_STATUS}" == "failed" ]]; then
-          maybe_trace_job "$PIPELINE"
-          log_error "Job '${JOB_NAME}' ${JOB_ID} for pipeline ${PIPELINE_ID} failed"
-          log_error "Job '${JOB_NAME}' ${JOB_ID} URL is ${JOB_URL}"
-          break
+          log_error "Pipeline ${PIPELINE_ID} changed to state 'failed'"
+          log_error "Pipeline URL: ${PIPELINE_URL}"
+          if [[ "[]" == "$(echo "${PIPELINE}" | jq -r '.jobs')" ]]; then
+            log_error "No jobs / details available"
+            break
+          elif [[ "null" == "${JOB_ID}" ]]; then
+            log_error "No jobs / details available"
+            break
+          else
+            maybe_trace_job "$PIPELINE"
+            log_error "Job '${JOB_NAME}' ${JOB_ID} for pipeline ${PIPELINE_ID} failed"
+            log_error "Job '${JOB_NAME}' ${JOB_ID} URL is ${JOB_URL}"
+            break
+          fi
         elif [[ "${PIPELINE_STATUS}" == "success" ]]; then
           maybe_trace_job "$PIPELINE"
           log_info "Job '${JOB_NAME}' ${JOB_ID} for pipeline ${PIPELINE_ID} succeeded"
