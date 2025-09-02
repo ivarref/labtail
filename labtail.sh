@@ -150,8 +150,11 @@ maybe_trace_job() {
       log_error "'job.id' is null: cannot trace log"
       sleep 1
     else
+      printf '\033[3J' # clear scrollback
+      printf '\033[2J' # clear whole screen without moving the cursor
+      printf '\033[H' # move cursor to top left of the screen
       log_info "Tracing job '${JOB_NAME}' ${JOB_ID} ..."
-      log_info "Job '${JOB_NAME}' URL: ${JOB_URL}"
+      log_info "Job '${JOB_NAME}' ${JOB_ID} URL is ${JOB_URL}"
       glab ci trace "${JOB_ID}" || true
       LAST_TRACED_JOB_ID="$JOB_ID"
     fi
@@ -212,6 +215,8 @@ while true; do
           maybe_trace_job "$PIPELINE"
           log_info "Job '${JOB_NAME}' ${JOB_ID} for pipeline ${PIPELINE_ID} succeeded"
           log_info "Job '${JOB_NAME}' ${JOB_ID} URL is ${JOB_URL}"
+          log_info "Pipeline ${PIPELINE_ID} URL is ${PIPELINE_URL}"
+
           break
         else
           log_error "Unhandled pipeline status '${PIPELINE_STATUS}'"
