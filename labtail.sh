@@ -134,6 +134,7 @@ get_glab_output() {
 
 LAST_PIPELINE_ID='INIT'
 LAST_TRACED_JOB_ID='INIT'
+LAST_PIPELINE_STATUS='INIT'
 
 maybe_trace_job() {
   PIPELINE="$1"
@@ -165,6 +166,7 @@ while true; do
   get_glab_output
   PIPELINE="$( echo "$GLAB_OUTPUT" | { jq -r '.' 2>/dev/null || echo '{}'; })"
   PIPELINE_ID="$(echo "${PIPELINE}" | jq -r '.id')"
+  LAST_PIPELINE_STATUS='INIT'
   if [[ "${PIPELINE_ID}" == "${LAST_PIPELINE_ID}" ]]; then
     log_status "Waiting for new pipeline ..."
     sleep 1
@@ -178,6 +180,12 @@ while true; do
       PIPELINE="$( echo "$GLAB_OUTPUT" | { jq -r '.' 2>/dev/null || echo '{}'; })"
       PIPELINE_ID="$(echo "${PIPELINE}" | jq -r '.id')"
       PIPELINE_STATUS="$(echo "${PIPELINE}" | jq -r '.status')"
+      if [[ "${PIPELINE_STATUS}" == "${LAST_PIPELINE_STATUS}" ]]; then
+        NEW_PIPELINE_STATUS='false'
+      else
+        NEW_PIPELINE_STATUS='true'
+        LAST_PIPELINE_STATUS="$(echo "${PIPELINE}" | jq -r '.status')"
+      fi
       PIPELINE_URL="$(echo "${PIPELINE}" | jq -r '.web_url')"
       JOB_ID="$(echo "${PIPELINE}" | jq -r '.jobs[-1].id')"
       JOB_URL="$( echo "${PIPELINE}" | jq -r '.jobs[-1].web_url')"
@@ -188,7 +196,7 @@ while true; do
           log_info "Pipeline ${PIPELINE_ID} changed to state 'running'"
           maybe_trace_job "$PIPELINE"
         elif [[ "${PIPELINE_STATUS}" == "pending" ]]; then
-          log_info "Pipeline ${PIPELINE_ID} changed to state 'pending'"
+          log_status "Pipeline ${PIPELINE_ID} changed to state 'pending'"
           sleep 1
         elif [[ "${PIPELINE_STATUS}" == "null" ]]; then
           sleep 1
@@ -216,10 +224,17 @@ while true; do
           log_info "Job '${JOB_NAME}' ${JOB_ID} for pipeline ${PIPELINE_ID} succeeded"
           log_info "Job '${JOB_NAME}' ${JOB_ID} URL is ${JOB_URL}"
           log_info "Pipeline ${PIPELINE_ID} URL is ${PIPELINE_URL}"
-
           break
+        elif [[ "${PIPELINE_STATUS}" == "manual" ]]; then
+          maybe_trace_job "$PIPELINE"
+          if [[ "${NEW_PIPELINE_STATUS}" == 'true' ]]; then
+            log_info "Pipeline ${PIPELINE_ID} URL is ${PIPELINE_URL}"
+          fi
+          log_status "Pipeline ${PIPELINE_ID} reached state 'manual' ..."
+          sleep 1
         else
           log_error "Unhandled pipeline status '${PIPELINE_STATUS}'"
+          log_info "Pipeline ${PIPELINE_ID} URL is ${PIPELINE_URL}"
           sleep 1
         fi
       else
