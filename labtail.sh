@@ -193,10 +193,13 @@ while true; do
 
       if [[ "${PIPELINE_ID}" == "${LAST_PIPELINE_ID}" ]]; then
         if [[ "${PIPELINE_STATUS}" == "running" ]]; then
-          log_info "Pipeline ${PIPELINE_ID} changed to state 'running'"
+          log_status "Pipeline ${PIPELINE_ID} changed to state 'running'"
           maybe_trace_job "$PIPELINE"
         elif [[ "${PIPELINE_STATUS}" == "pending" ]]; then
           log_status "Pipeline ${PIPELINE_ID} changed to state 'pending'"
+          sleep 1
+        elif [[ "${PIPELINE_STATUS}" == "created" ]]; then
+          log_status "Pipeline ${PIPELINE_ID} changed to state 'created'"
           sleep 1
         elif [[ "${PIPELINE_STATUS}" == "null" ]]; then
           sleep 1
