@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
+trap 'rm -rf -- "$MYTMPDIR"' EXIT
+MYTMPDIR="$(mktemp -d)"
 
 NEED_NEWLINE='false'
 PREV_LINE='xyz'
@@ -126,6 +128,8 @@ get_glab_output() {
     GLAB_OUTPUT='{}'
   elif [[ "$GLAB_OUTPUT" == *"error connecting to"* ]]; then
     GLAB_OUTPUT='{}'
+  elif [[ "$GLAB_OUTPUT" == *"i/o timeout"* ]]; then
+    GLAB_OUTPUT='{}'
   else
     log_error "Unexpected exit code '${GLAB_EXIT_CODE}' from 'glab ci get --output json'. Stdout/stderr was: ${GLAB_OUTPUT}"
     exit "${GLAB_EXIT_CODE}"
@@ -133,7 +137,6 @@ get_glab_output() {
 }
 
 LAST_PIPELINE_ID='INIT'
-LAST_TRACED_JOB_ID='INIT'
 LAST_PIPELINE_STATUS='INIT'
 
 maybe_trace_job() {
@@ -142,23 +145,42 @@ maybe_trace_job() {
     log_error "'.jobs' is an empty array. Should not happen. Exiting"
     exit 1
   else
-    JOB_ID="$(echo "${PIPELINE}" | jq -r '.jobs[-1].id')"
-    JOB_URL="$( echo "${PIPELINE}" | jq -r '.jobs[-1].web_url')"
-    JOB_NAME="$( echo "${PIPELINE}" | jq -r '.jobs[-1].name')"
-    if [[ "$LAST_TRACED_JOB_ID" == "$JOB_ID" ]]; then
-      :
-    elif [[ "${JOB_ID}" == "null" ]]; then
-      log_error "'job.id' is null: cannot trace log"
-      sleep 1
-    else
-      printf '\033[3J' # clear scrollback
-      printf '\033[2J' # clear whole screen without moving the cursor
-      printf '\033[H' # move cursor to top left of the screen
-      log_info "Tracing job '${JOB_NAME}' ${JOB_ID} ..."
-      log_info "Job '${JOB_NAME}' ${JOB_ID} URL is ${JOB_URL}"
-      glab ci trace "${JOB_ID}" || true
-      LAST_TRACED_JOB_ID="$JOB_ID"
-    fi
+    ALL_JOB_IDS="$(echo "${PIPELINE}" | jq -r '.jobs[] | select(type=="object" and has("status") and (.status == "running" or .status == "failed" or .status == "success" or .status == "pending")) | .id' | sort)"
+    while IFS= read -r JOB_ID || [[ -n $JOB_ID ]]; do
+      if [[ "${JOB_ID}" != "null" ]]; then
+        if [ ! -f "${MYTMPDIR}/job_${JOB_ID}" ]; then
+            touch "${MYTMPDIR}/job_${JOB_ID}"
+            JOB_URL="$(echo "${PIPELINE}" | jq -r ".jobs[] | select(.id == ${JOB_ID}) | .web_url")"
+            JOB_NAME="$(echo "${PIPELINE}" | jq -r ".jobs[] | select(.id == ${JOB_ID}) | .name")"
+            JOB_STATUS="$(echo "${PIPELINE}" | jq -r ".jobs[] | select(.id == ${JOB_ID}) | .status")"
+            log_info "Tracing job '${JOB_NAME}' ${JOB_ID} with status '${JOB_STATUS}' ..."
+            log_info "Job '${JOB_NAME}' ${JOB_ID} URL is ${JOB_URL}"
+            glab ci trace "${JOB_ID}" || true
+        fi
+      fi
+    done < <(printf '%s' "$ALL_JOB_IDS")
+  fi
+}
+
+trace_job_manual() {
+  PIPELINE="$1"
+  if [[ "[]" == "$(echo "${PIPELINE}" | jq -r '.jobs')" ]]; then
+    log_error "'.jobs' is an empty array. Should not happen. Exiting"
+    exit 1
+  else
+    ALL_JOB_IDS="$(echo "${PIPELINE}" | jq -r '.jobs[] | select(type=="object" and has("status") and (.status == "manual")) | .id' | sort)"
+    while IFS= read -r JOB_ID || [[ -n $JOB_ID ]]; do
+      if [[ "${JOB_ID}" != "null" ]]; then
+        if [ ! -f "${MYTMPDIR}/job_${JOB_ID}" ]; then
+            touch "${MYTMPDIR}/job_${JOB_ID}"
+            JOB_URL="$(echo "${PIPELINE}" | jq -r ".jobs[] | select(.id == ${JOB_ID}) | .web_url")"
+            JOB_NAME="$(echo "${PIPELINE}" | jq -r ".jobs[] | select(.id == ${JOB_ID}) | .name")"
+            log_info "Tracing manual job '${JOB_NAME}' ${JOB_ID} ..."
+            log_info "Job '${JOB_NAME}' ${JOB_ID} URL is ${JOB_URL}"
+            glab ci trace "${JOB_ID}" || true
+        fi
+      fi
+    done < <(printf '%s' "$ALL_JOB_IDS")
   fi
 }
 
@@ -187,10 +209,6 @@ while true; do
         LAST_PIPELINE_STATUS="$(echo "${PIPELINE}" | jq -r '.status')"
       fi
       PIPELINE_URL="$(echo "${PIPELINE}" | jq -r '.web_url')"
-      JOB_ID="$(echo "${PIPELINE}" | jq -r '.jobs[-1].id')"
-      JOB_URL="$( echo "${PIPELINE}" | jq -r '.jobs[-1].web_url')"
-      JOB_NAME="$( echo "${PIPELINE}" | jq -r '.jobs[-1].name')"
-
       if [[ "${PIPELINE_ID}" == "${LAST_PIPELINE_ID}" ]]; then
         if [[ "${PIPELINE_STATUS}" == "running" ]]; then
           log_status "Pipeline ${PIPELINE_ID} changed to state 'running'"
@@ -213,27 +231,23 @@ while true; do
           if [[ "[]" == "$(echo "${PIPELINE}" | jq -r '.jobs')" ]]; then
             log_error "No jobs / details available"
             break
-          elif [[ "null" == "${JOB_ID}" ]]; then
-            log_error "No jobs / details available"
-            break
           else
             maybe_trace_job "$PIPELINE"
-            log_error "Job '${JOB_NAME}' ${JOB_ID} for pipeline ${PIPELINE_ID} failed"
-            log_error "Job '${JOB_NAME}' ${JOB_ID} URL is ${JOB_URL}"
+            log_error "Pipeline ${PIPELINE_ID} failed"
+            log_error "Pipeline URL is ${PIPELINE_URL}"
             break
           fi
         elif [[ "${PIPELINE_STATUS}" == "success" ]]; then
           maybe_trace_job "$PIPELINE"
-          log_info "Job '${JOB_NAME}' ${JOB_ID} for pipeline ${PIPELINE_ID} succeeded"
-          log_info "Job '${JOB_NAME}' ${JOB_ID} URL is ${JOB_URL}"
-          log_info "Pipeline ${PIPELINE_ID} URL is ${PIPELINE_URL}"
+          log_info "Pipeline ${PIPELINE_ID} succeeded"
+          log_info "Pipeline URL is ${PIPELINE_URL}"
           break
         elif [[ "${PIPELINE_STATUS}" == "manual" ]]; then
-          maybe_trace_job "$PIPELINE"
+          log_status "Pipeline ${PIPELINE_ID} changed to state 'manual'"
           if [[ "${NEW_PIPELINE_STATUS}" == 'true' ]]; then
             log_info "Pipeline ${PIPELINE_ID} URL is ${PIPELINE_URL}"
           fi
-          log_status "Pipeline ${PIPELINE_ID} reached state 'manual' ..."
+          trace_job_manual "$PIPELINE"
           sleep 1
         else
           log_error "Unhandled pipeline status '${PIPELINE_STATUS}'"
