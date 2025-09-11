@@ -85,16 +85,17 @@ def do_release():
                         global LINE_PREFIX_TO_PATCH
                         global LINE_POSTFIX
                         if lin.startswith(LINE_PREFIX_TO_PATCH):
-                            print(f"Patching line:\n{lin}")
                             new_line = '$PREFIX$SHA$POSTFIX'.replace('$PREFIX', LINE_PREFIX_TO_PATCH)
                             new_line = new_line.replace('$SHA', git_sha).replace('$POSTFIX', LINE_POSTFIX)
                             new_line = new_line.rstrip('\n')
-                            print(f"{new_line}")
                             if new_line != lin:
+                                print(f"Patching line:\n{lin}")
                                 found = True
                                 print(f"^^^ patched line")
                             else:
-                                print(f"^^^ Identical line")
+                                print(f"Line:\n{lin}")
+                                print(f"Is up to date, aborting release.")
+                                return False
                             new_lines.append(new_line)
                         else:
                             new_lines.append(lin)
