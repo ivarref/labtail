@@ -70,7 +70,7 @@ def do_release():
             return False
         else:
             print("No changes / pending changes. Good!")
-            git_sha = exec_verbose(["git", "rev-parse", "--verify", "HEAD"], return_sout=True)
+            git_sha = exec_verbose(["git", "rev-list", "-1", "HEAD", "--", "./labtail.sh"], return_sout=True)
             if False == git_sha:
                 print("Could not get git sha!")
                 return False
@@ -89,10 +89,13 @@ def do_release():
                             new_line = '''
                             $PREFIX$SHA$POSTFIX
                             '''.replace('$PREFIX', LINE_PREFIX_TO_PATCH).replace('$SHA', git_sha).replace('$POSTFIX', LINE_POSTFIX)
-                            new_line = new_line.strip()
+                            new_line = new_line.rstrip('\n')
                             print(f"{new_line}")
-                            print(f"^^^ patched line")
-                            found = True
+                            if new_line != lin:
+                                found = True
+                                print(f"^^^ patched line")
+                            else:
+                                print(f"^^^ Identical line")
                             new_lines.append(new_line)
                         else:
                             new_lines.append(lin)
