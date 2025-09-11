@@ -86,9 +86,8 @@ def do_release():
                         global LINE_POSTFIX
                         if lin.startswith(LINE_PREFIX_TO_PATCH):
                             print(f"Patching line:\n{lin}")
-                            new_line = '''
-                            $PREFIX$SHA$POSTFIX
-                            '''.replace('$PREFIX', LINE_PREFIX_TO_PATCH).replace('$SHA', git_sha).replace('$POSTFIX', LINE_POSTFIX)
+                            new_line = '$PREFIX$SHA$POSTFIX'.replace('$PREFIX', LINE_PREFIX_TO_PATCH)
+                            new_line = new_line.replace('$SHA', git_sha).replace('$POSTFIX', LINE_POSTFIX)
                             new_line = new_line.rstrip('\n')
                             print(f"{new_line}")
                             if new_line != lin:
@@ -128,7 +127,7 @@ def do_release():
                                     return False
                                 else:
                                     print("OK push: " + " ".join(cmd))
-                                    print(f"Released sha {git_sha}")
+                                    print(f"Released sha '{git_sha}'")
                                     return True
     print('should not get here')
     sys.exit(1)
