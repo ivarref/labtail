@@ -126,6 +126,8 @@ get_glab_output() {
     GLAB_OUTPUT='{}'
   elif [[ "$GLAB_OUTPUT" == *"connect: connection refused"* ]]; then
     GLAB_OUTPUT='{}'
+  elif [[ "$GLAB_OUTPUT" == *"connect: operation timed out"* ]]; then
+      GLAB_OUTPUT='{}'
   elif [[ "$GLAB_OUTPUT" == *"error connecting to"* ]]; then
     GLAB_OUTPUT='{}'
   elif [[ "$GLAB_OUTPUT" == *"i/o timeout"* ]]; then
@@ -243,11 +245,11 @@ while true; do
           log_info "Pipeline URL is ${PIPELINE_URL}"
           break
         elif [[ "${PIPELINE_STATUS}" == "manual" ]]; then
-          log_status "Pipeline ${PIPELINE_ID} changed to state 'manual'"
           if [[ "${NEW_PIPELINE_STATUS}" == 'true' ]]; then
             log_info "Pipeline ${PIPELINE_ID} URL is ${PIPELINE_URL}"
           fi
-          trace_job_manual "$PIPELINE"
+          log_status "Pipeline ${PIPELINE_ID} changed to state 'manual'"
+#          trace_job_manual "$PIPELINE"
           sleep 1
         else
           log_error "Unhandled pipeline status '${PIPELINE_STATUS}'"
