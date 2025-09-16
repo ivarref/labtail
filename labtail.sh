@@ -186,6 +186,8 @@ trace_job_manual() {
   fi
 }
 
+printf '\033[3J\033[2J\033[H' # clear scrollback, clear screen, move cursor to top left
+
 while true; do
   get_glab_output
   PIPELINE="$( echo "$GLAB_OUTPUT" | { jq -r '.' 2>/dev/null || echo '{}'; })"
@@ -198,6 +200,9 @@ while true; do
     log_status "Waiting for new pipeline ..."
     sleep 1
   else
+    if [[ "${LAST_PIPELINE_STATUS}" == "INIT" ]]; then
+      printf '\033[3J\033[2J\033[H' # clear scrollback, clear screen, move cursor to top left
+    fi
     LAST_PIPELINE_ID="${PIPELINE_ID}"
     while true; do
       get_glab_output
@@ -257,6 +262,7 @@ while true; do
           sleep 1
         fi
       else
+        printf '\033[3J\033[2J\033[H' # clear scrollback, clear screen, move cursor to top left
         log_info "Pipeline changed to ${PIPELINE_ID}"
         break
       fi
