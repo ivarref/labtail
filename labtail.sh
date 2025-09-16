@@ -186,7 +186,12 @@ trace_job_manual() {
   fi
 }
 
-printf '\033[3J\033[2J\033[H' # clear scrollback, clear screen, move cursor to top left
+clear_screen() {
+  printf '\033[3J\033[2J\033[H' # clear scrollback, clear screen, move cursor to top left
+  NEED_NEWLINE='false'
+}
+
+clear_screen
 
 while true; do
   get_glab_output
@@ -201,7 +206,7 @@ while true; do
     sleep 1
   else
     if [[ "${LAST_PIPELINE_STATUS}" == "INIT" ]]; then
-      printf '\033[3J\033[2J\033[H' # clear scrollback, clear screen, move cursor to top left
+      clear_screen
     fi
     LAST_PIPELINE_ID="${PIPELINE_ID}"
     while true; do
@@ -262,7 +267,7 @@ while true; do
           sleep 1
         fi
       else
-        printf '\033[3J\033[2J\033[H' # clear scrollback, clear screen, move cursor to top left
+        clear_screen
         log_info "Pipeline changed to ${PIPELINE_ID}"
         break
       fi
