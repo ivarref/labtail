@@ -4,6 +4,27 @@ set -euo pipefail
 trap 'rm -rf -- "$MYTMPDIR"' EXIT
 MYTMPDIR="$(mktemp -d)"
 
+# https://stackoverflow.com/questions/59895/how-do-i-get-the-directory-where-a-bash-script-is-located-from-within-the-script
+SOURCE=${BASH_SOURCE[0]}
+while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+  SOURCE=$(readlink "$SOURCE")
+  [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+
+if [[ "${1:-x}" == "--self-watch" ]]; then
+  shift
+  printf "%s" "${SOURCE}" | entr -ccr bash -c "${SOURCE} $*"
+  exit 0
+fi
+
+CLEAR_SCREEN='true'
+if [[ "${1:-x}" == "--no-clear" ]]; then
+  shift
+  CLEAR_SCREEN='false'
+  echo "--no-clear screen enabled"
+fi
+
 NEED_NEWLINE='false'
 PREV_LINE='xyz'
 
@@ -146,6 +167,10 @@ maybe_trace_job() {
   if [[ "[]" == "$(echo "${PIPELINE}" | jq -r '.jobs')" ]]; then
     log_error "'.jobs' is an empty array. Should not happen. Exiting"
     exit 1
+  elif [[ "null" == "$(echo "${PIPELINE}" | jq -r '.jobs')" ]]; then
+    :
+    #log_error "'.jobs' is null array. Should not happen. Exiting"
+    #exit 1
   else
     ALL_JOB_IDS="$(echo "${PIPELINE}" | jq -r '.jobs[] | select(type=="object" and has("status") and (.status == "running" or .status == "failed" or .status == "success" or .status == "pending")) | .id' | sort)"
     while IFS= read -r JOB_ID || [[ -n $JOB_ID ]]; do
@@ -187,8 +212,12 @@ trace_job_manual() {
 }
 
 clear_screen() {
-  printf '\033[3J\033[2J\033[H' # clear scrollback, clear screen, move cursor to top left
-  NEED_NEWLINE='false'
+  if [[ "$CLEAR_SCREEN" == 'true' ]]; then
+    printf '\033[3J\033[2J\033[H' # clear scrollback, clear screen, move cursor to top left
+    NEED_NEWLINE='false'
+  else
+    log_info "(not clearing screen)"
+  fi
 }
 
 clear_screen
@@ -197,6 +226,7 @@ while true; do
   get_glab_output
   PIPELINE="$( echo "$GLAB_OUTPUT" | { jq -r '.' 2>/dev/null || echo '{}'; })"
   PIPELINE_ID="$(echo "${PIPELINE}" | jq -r '.id')"
+  PIPELINE_URL="$(echo "${PIPELINE}" | jq -r '.web_url')"
   LAST_PIPELINE_STATUS='INIT'
   if [[ "${PIPELINE_ID}" == "${LAST_PIPELINE_ID}" ]]; then
     log_status "Waiting for new pipeline ..."
@@ -205,9 +235,8 @@ while true; do
     log_status "Waiting for new pipeline ..."
     sleep 1
   else
-    if [[ "${LAST_PIPELINE_STATUS}" == "INIT" ]]; then
-      clear_screen
-    fi
+    clear_screen
+    log_info "Tailing pipeline ${PIPELINE_ID} ... URL is ${PIPELINE_URL}"
     LAST_PIPELINE_ID="${PIPELINE_ID}"
     while true; do
       get_glab_output
@@ -267,7 +296,6 @@ while true; do
           sleep 1
         fi
       else
-        clear_screen
         log_info "Pipeline changed to ${PIPELINE_ID}"
         break
       fi
