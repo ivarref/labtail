@@ -14,7 +14,7 @@ done
 
 if [[ "${1:-x}" == "--self-watch" ]]; then
   shift
-  printf "%s" "${SOURCE}" | entr -ccr bash -c "${SOURCE} $*"
+  printf "%s" "${SOURCE}" | entr -ccr bash -c "echo '(Re)starting ...' && ${SOURCE} $*"
   exit 0
 fi
 
@@ -66,11 +66,27 @@ fi
 log_status() {
   if [[ "$PREV_LINE" == "$1" ]]; then
     NOW_EPOCH="$(date '+%s')"
-    WAITED="$((NOW_EPOCH-BEGIN_EPOCH))"
+#    WAITED="$((NOW_EPOCH-BEGIN_EPOCH))"
+    WAITED="$(env BEGIN_EPOCH="${BEGIN_EPOCH}" python3 -c '
+import os
+import time
+now_epoch = (time.time_ns() // 1_000_000_000)
+seconds = now_epoch - int(os.environ["BEGIN_EPOCH"])
+(days, seconds) = divmod(seconds, int(24*3600))
+(hours, seconds) = divmod(seconds, 3600)
+(minutes, seconds) = divmod(seconds, 60)
+prefix = ""
+if days > 0:
+    print(f"{int(days):} days, {hours:02.0f}:{minutes:02.0f}:{seconds:02.0f}")
+elif hours > 0:
+    print(f"{hours:02.0f}:{minutes:02.0f}:{seconds:02.0f}")
+else:
+    print(f"{minutes:02.0f}:{seconds:02.0f}")
+')"
     if [[ "$PUSH_MODE" == "true" ]]; then
       FILE_CHANGE_COUNT="$(git status --porcelain=v1 2>/dev/null | grep -v "^??" | wc -l | sed 's/[^0-9]//g' || true )"
       if [[ "$FILE_CHANGE_COUNT" != "0" ]]; then
-        printf "\r$(getdate) $1 waited ${WAITED} seconds. "
+        printf "\r$(getdate) $1 waited ${WAITED}"
         if [[ "$FILE_CHANGE_COUNT" == "1" ]]; then
           printf "Pushing %s git change ...\n" "${FILE_CHANGE_COUNT}"
         else
@@ -80,11 +96,11 @@ log_status() {
         git push
         NEED_NEWLINE='false'
       else
-        printf "\r$(getdate) $1 waited ${WAITED} seconds (no git changes)"
+        printf "\r$(getdate) $1 waited ${WAITED} (no git changes)"
         NEED_NEWLINE='true'
       fi
     else
-      printf "\r$(getdate) $1 waited ${WAITED} seconds"
+      printf "\r$(getdate) $1 waited ${WAITED}"
       NEED_NEWLINE='true'
     fi
   else
@@ -92,10 +108,10 @@ log_status() {
     BEGIN_EPOCH="$(date '+%s')"
     if [[ "$NEED_NEWLINE" == "true" ]]; then
       printf "\n"
-      echo -e -n "$(getdate) $1 waited 0 seconds"
+      echo -e -n "$(getdate) $1 waited 00:00"
       NEED_NEWLINE='true'
     else
-      echo -e -n "$(getdate) $1 waited 0 seconds"
+      echo -e -n "$(getdate) $1 waited 00:00"
       NEED_NEWLINE='true'
     fi
   fi
@@ -216,11 +232,13 @@ clear_screen() {
     printf '\033[3J\033[2J\033[H' # clear scrollback, clear screen, move cursor to top left
     NEED_NEWLINE='false'
   else
-    log_info "(not clearing screen)"
+    log_info "$(python3 -c 'print("*"*80)')"
   fi
 }
 
-clear_screen
+if [[ "$CLEAR_SCREEN" == 'true' ]]; then
+  clear_screen
+fi
 
 while true; do
   get_glab_output
@@ -268,7 +286,7 @@ while true; do
           break
         elif [[ "${PIPELINE_STATUS}" == "failed" ]]; then
           log_error "Pipeline ${PIPELINE_ID} changed to state 'failed'"
-          log_error "Pipeline URL: ${PIPELINE_URL}"
+          log_error "Pipeline URL is ${PIPELINE_URL}"
           if [[ "[]" == "$(echo "${PIPELINE}" | jq -r '.jobs')" ]]; then
             log_error "No jobs / details available"
             break
