@@ -18,11 +18,17 @@ if [[ "${1:-x}" == "--self-watch" ]]; then
   exit 0
 fi
 
-CLEAR_SCREEN='true'
-if [[ "${1:-x}" == "--no-clear" ]]; then
+CLEAR_SCREEN='false'
+if [[ "${1:-x}" == "--clear" ]]; then
   shift
-  CLEAR_SCREEN='false'
-  echo "--no-clear screen enabled"
+  CLEAR_SCREEN='true'
+  echo "clear screen enabled"
+fi
+
+if [[ "${1:-x}" == "-c" ]]; then
+  shift
+  CLEAR_SCREEN='true'
+  echo "clear screen enabled"
 fi
 
 NEED_NEWLINE='false'
